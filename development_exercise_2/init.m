@@ -100,9 +100,9 @@ end
 
 %% 5) Write the open-loop (C(s)G(s) and closed-loop (W(s)) transfer functions for the feedback system
 
-T1_phi = 2000;     T2_phi_0 = 0.1;      T2_phi = T2_phi_0; 
-T1_theta = 2000;   T2_theta_0 = 0.1;    T2_theta = T2_theta_0;
-T1_psi = 2000;     T2_psi_0 = 0.1;      T2_psi = T2_psi_0;
+T1_phi_0 = 2000;    T1_phi = T1_phi_0;      T2_phi_0 = 0.1;     T2_phi = T2_phi_0; 
+T1_theta_0 = 2000;  T1_theta = T1_theta_0;  T2_theta_0 = 0.1 ;  T2_theta = T2_theta_0;
+T1_psi_0 = 2000;    T1_psi = T1_psi_0;      T2_psi_0 = 0.1;     T2_psi = T2_psi_0;
 
 % Controller (lead compensator) definitions
 C_phi   = K_phi   * (1 + T1_phi*s)   / (1 + T2_phi*s);
@@ -131,37 +131,140 @@ figure;
 bode(L_psi, {1e-5,1e3}); grid on; title('Initial Bode Diagram - Yaw axis');
 
 %% 7) Adjust the controller parameters through trial and error using MATLAB's margin() function
+
+% Roll axis
 disp('Starting optimization on T2_phi and T1_phi');
 [~,Pm,~,~] = margin(L_phi);
-% while T1_phi - T2_phi > 200
-%     T1_phi = T1_phi - 10;
-    while Pm > m_phi_star && T1_phi > T2_phi
-        T2_phi = T2_phi + 0.1;
+t_r = 100;
+while t_r > t_r_star
+    K_phi = K_phi + 1e-4;
+    T1_phi = T1_phi_0;
+    T2_phi = T2_phi_0;
+    while T1_phi - T2_phi > 200
+        T1_phi = T1_phi - 100;
+        T2_phi = T2_phi_0;
+        while Pm > m_phi_star && T1_phi > T2_phi
+            T2_phi = T2_phi + 0.1;
+            C_phi   = K_phi   * (1 + T1_phi*s)   / (1 + T2_phi*s);
+            L_phi   = C_phi   * G_phi;
+            [~,Pm,~,~] = margin(L_phi);
+            status = [K_phi, T1_phi, T2_phi];
+        end
+        T2_phi = T2_phi_0;
         C_phi   = K_phi   * (1 + T1_phi*s)   / (1 + T2_phi*s);
         L_phi   = C_phi   * G_phi;
         [~,Pm,~,~] = margin(L_phi);
-        status = [T1_phi, T2_phi, Pm]
     end
-%     T2_phi = T2_phi_0;
-%     C_phi   = K_phi   * (1 + T1_phi*s)   / (1 + T2_phi*s);
-%     L_phi   = C_phi   * G_phi;
-%     [~,Pm,~,~] = margin(L_phi);
-%     disp('Changing T1_phi...')
-% end
+    W_phi   = feedback(L_phi, 1);
+    S = stepinfo(W_phi);
+    t_r = S.RiseTime;  % Update rise time from step response information
+end
+
+% Recalculating for best combination
+K_phi = status(1);
+T1_phi = status(2);
+T2_phi = status(3);
+
+C_phi   = K_phi   * (1 + T1_phi*s)   / (1 + T2_phi*s);
+L_phi   = C_phi   * G_phi;
+W_phi   = feedback(L_phi, 1);
+
+figure;
+margin(L_phi); grid on; title('Final Bode Diagram - Roll axis');
+[Gm_phi,Pm_phi,Wcg_phi,Wcp_phi]=margin(L_phi);
+
+% Pitch axis
+disp('Starting optimization on T2_theta and T1_theta');
+[~,Pm,~,~] = margin(L_theta);
+t_r = 100;
+while t_r > t_r_star
+    K_theta = K_theta + 1e-4;
+    T1_theta = T1_theta_0;
+    T2_theta = T2_theta_0;
+    while T1_theta - T2_theta > 200
+        T1_theta = T1_theta - 100;
+        T2_theta = T2_theta_0;
+        while Pm > m_phi_star && T1_theta > T2_theta
+            T2_theta = T2_theta + 0.1;
+            C_theta   = K_theta   * (1 + T1_theta*s)   / (1 + T2_theta*s);
+            L_theta   = C_theta   * G_theta;
+            [~,Pm,~,~] = margin(L_theta);
+            status = [K_theta, T1_theta, T2_theta];
+        end
+        T2_theta = T2_theta_0;
+        C_theta   = K_theta   * (1 + T1_theta*s)   / (1 + T2_theta*s);
+        L_theta   = C_theta   * G_theta;
+        [~,Pm,~,~] = margin(L_theta);
+    end
+    W_theta   = feedback(L_theta, 1);
+    S = stepinfo(W_theta);
+    t_r = S.RiseTime;  % Update rise time from step response information
+end
+
+% Recalculating for best combination
+K_theta = status(1);
+T1_theta = status(2);
+T2_theta = status(3);
+
+C_theta   = K_theta   * (1 + T1_theta*s)   / (1 + T2_theta*s);
+L_theta   = C_theta   * G_theta;
+W_theta   = feedback(L_theta, 1);
+
+figure;
+margin(L_theta); grid on; title('Final Bode Diagram - Pitch axis');
+[Gm_theta,Pm_theta,Wcg_theta,Wcp_theta]=margin(L_theta);
+
+% Pitch axis
+disp('Starting optimization on T2_psi and T1_psi');
+[~,Pm,~,~] = margin(L_psi);
+t_r = 100;
+while t_r > t_r_star
+    K_psi = K_psi + 1e-4;
+    T1_psi = T1_psi_0;
+    T2_psi = T2_psi_0;
+    while T1_psi - T2_psi > 200
+        T1_psi = T1_psi - 100;
+        T2_psi = T2_psi_0;
+        while Pm > m_phi_star && T1_psi > T2_psi
+            T2_psi = T2_psi + 0.1;
+            C_psi   = K_psi   * (1 + T1_psi*s)   / (1 + T2_psi*s);
+            L_psi   = C_psi   * G_psi;
+            [~,Pm,~,~] = margin(L_psi);
+            status = [K_psi, T1_psi, T2_psi];
+        end
+        T2_psi = T2_psi_0;
+        C_psi   = K_psi   * (1 + T1_psi*s)   / (1 + T2_psi*s);
+        L_psi   = C_psi   * G_psi;
+        [~,Pm,~,~] = margin(L_psi);
+    end
+    W_psi   = feedback(L_psi, 1);
+    S = stepinfo(W_psi);
+    t_r = S.RiseTime;  % Update rise time from step response information
+end
+
+% Recalculating for best combination
+K_psi = status(1);
+T1_psi = status(2);
+T2_psi = status(3);
+
+C_psi   = K_psi   * (1 + T1_psi*s)   / (1 + T2_psi*s);
+L_psi   = C_psi   * G_psi;
+W_psi   = feedback(L_psi, 1);
+
+figure;
+margin(L_psi); grid on; title('Final Bode Diagram - Yaw axis');
+[Gm_psi,Pm_psi,Wcg_psi,Wcp_psi]=margin(L_psi);
 
 %% 8) Verify the step response using MATLAB's step() function
-W_phi   = feedback(L_phi, 1);
-% W_theta = feedback(L_theta, 1);
-% W_psi   = feedback(L_psi, 1);
 
 figure;
 step(W_phi); grid on; title('Step Response - Roll axis');
-stepinfo(W_phi)
+S_phi = stepinfo(W_phi);
 
-% figure;
-% step(W_theta); grid on; title('Step Response - Pitch axis');
-% stepinfo(W_theta)
-% 
-% figure;
-% step(W_psi); grid on; title('Step Response - Yaw axis');
-% stepinfo(W_psi)
+figure;
+step(W_theta); grid on; title('Step Response - Pitch axis');
+S_theta = stepinfo(W_theta);
+
+figure;
+step(W_psi); grid on; title('Step Response - Yaw axis');
+S_psi = stepinfo(W_psi);
