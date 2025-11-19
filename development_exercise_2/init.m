@@ -100,9 +100,9 @@ end
 
 %% 5) Write the open-loop (C(s)G(s) and closed-loop (W(s)) transfer functions for the feedback system
 
-T1_phi = 1000;     T2_phi = 0.1;
-T1_theta = 1000;   T2_theta = 0.1;
-T1_psi = 1000;     T2_psi = 0.1;
+T1_phi = 2000;     T2_phi_0 = 0.1;      T2_phi = T2_phi_0; 
+T1_theta = 2000;   T2_theta_0 = 0.1;    T2_theta = T2_theta_0;
+T1_psi = 2000;     T2_psi_0 = 0.1;      T2_psi = T2_psi_0;
 
 % Controller (lead compensator) definitions
 C_phi   = K_phi   * (1 + T1_phi*s)   / (1 + T2_phi*s);
@@ -114,6 +114,7 @@ L_phi   = C_phi   * G_phi;
 L_theta = C_theta * G_theta; 
 L_psi   = C_psi   * G_psi;
 
+% Closed loop transfer function
 W_phi   = feedback(L_phi, 1);
 W_theta = feedback(L_theta, 1);
 W_psi   = feedback(L_psi, 1);
@@ -121,31 +122,46 @@ W_psi   = feedback(L_psi, 1);
 
 %% 6) Trace the Bode diagrams of the open-loop transfer function using MATLAB bode() function
 figure;
-bode(L_phi); grid on; title('Bode Diagram - Roll axis');
+bode(L_phi, {1e-5,1e3}); grid on; title('Initial Bode Diagram - Roll axis');
 
 figure;
-bode(L_theta); grid on; title('Bode Diagram - Pitch axis');
+bode(L_theta, {1e-5,1e3}); grid on; title('Initial Bode Diagram - Pitch axis');
 
 figure;
-bode(L_psi); grid on; title('Bode Diagram - Yaw axis');
+bode(L_psi, {1e-5,1e3}); grid on; title('Initial Bode Diagram - Yaw axis');
 
 %% 7) Adjust the controller parameters through trial and error using MATLAB's margin() function
-figure;
-margin(L_phi); grid on; title('Margin - Roll axis');
-
-figure;
-margin(L_theta); grid on; title('Margin - Pitch axis');
-
-figure;
-margin(L_psi); grid on; title('Margin - Yaw axis');
-
+disp('Starting optimization on T2_phi and T1_phi');
+[~,Pm,~,~] = margin(L_phi);
+% while T1_phi - T2_phi > 200
+%     T1_phi = T1_phi - 10;
+    while Pm > m_phi_star && T1_phi > T2_phi
+        T2_phi = T2_phi + 0.1;
+        C_phi   = K_phi   * (1 + T1_phi*s)   / (1 + T2_phi*s);
+        L_phi   = C_phi   * G_phi;
+        [~,Pm,~,~] = margin(L_phi);
+        status = [T1_phi, T2_phi, Pm]
+    end
+%     T2_phi = T2_phi_0;
+%     C_phi   = K_phi   * (1 + T1_phi*s)   / (1 + T2_phi*s);
+%     L_phi   = C_phi   * G_phi;
+%     [~,Pm,~,~] = margin(L_phi);
+%     disp('Changing T1_phi...')
+% end
 
 %% 8) Verify the step response using MATLAB's step() function
+W_phi   = feedback(L_phi, 1);
+% W_theta = feedback(L_theta, 1);
+% W_psi   = feedback(L_psi, 1);
+
 figure;
 step(W_phi); grid on; title('Step Response - Roll axis');
+stepinfo(W_phi)
 
-figure;
-step(W_theta); grid on; title('Step Response - Pitch axis');
-
-figure;
-step(W_psi); grid on; title('Step Response - Yaw axis');
+% figure;
+% step(W_theta); grid on; title('Step Response - Pitch axis');
+% stepinfo(W_theta)
+% 
+% figure;
+% step(W_psi); grid on; title('Step Response - Yaw axis');
+% stepinfo(W_psi)
